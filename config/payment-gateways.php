@@ -34,6 +34,13 @@ return [
         //     'vc_code' => env('MYFATOORAH_VC_CODE', 'KWT'),
         //     'test_mode' => env('MYFATOORAH_TEST_MODE', true),
         // ],
+        //
+        // 'tap' => [
+        //     'driver' => 'tap',
+        //     'secret_key' => env('TAP_SECRET_KEY'), // sk_test_... or sk_live_...
+        //     'source' => env('TAP_SOURCE', 'src_all'), // src_all | src_card | src_kw.knet
+        //     'phone_country_code' => env('TAP_PHONE_COUNTRY_CODE', '965'),
+        // ],
     ],
 
     /*

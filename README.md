@@ -6,7 +6,7 @@
 
 Unified payment processing for Laravel with Gulf-region gateways (MyFatoorah, KNET, Tap, Hesabe, UPayment) behind a single driver-based API. Every gateway returns the same normalised response shapes, and a new provider can be added by implementing one driver class.
 
-> **Status:** under active development. The `myfatoorah` driver is implemented; the rest are planned.
+> **Status:** under active development. The `myfatoorah` and `tap` drivers are implemented; the rest are planned.
 
 ## How it works
 
@@ -36,6 +36,9 @@ PAYMENT_GATEWAY=myfatoorah
 MYFATOORAH_API_KEY=your-api-key
 MYFATOORAH_VC_CODE=KWT
 MYFATOORAH_TEST_MODE=true
+
+# or, for Tap
+TAP_SECRET_KEY=sk_test_XKokBfNWv6FIYuTMg5sLPjhJ
 ```
 
 ## Configuration
@@ -57,6 +60,12 @@ return [
             'api_key' => env('MYFATOORAH_API_KEY'),
             'vc_code' => env('MYFATOORAH_VC_CODE', 'KWT'),
             'test_mode' => env('MYFATOORAH_TEST_MODE', true),
+        ],
+        'tap' => [
+            'driver' => 'tap',
+            'secret_key' => env('TAP_SECRET_KEY'),
+            'source' => env('TAP_SOURCE', 'src_all'),
+            'phone_country_code' => env('TAP_PHONE_COUNTRY_CODE', '965'),
         ],
     ],
 
@@ -156,6 +165,20 @@ class MyGateway extends AbstractGateway
 }
 ```
 
+`AbstractGateway` also has provider-neutral helpers, so most drivers only contain what is specific to their provider (see `TapGateway` for a full example):
+
+| Helper | What it does |
+|---|---|
+| `http()` | Laravel HTTP client sending and accepting JSON, with the `timeout` config key. Override it to add your base URL and auth, starting from `parent::http()`. |
+| `send(fn ($http) => ..., 'charge')` | Runs a request built on `http()`; connection errors and failed responses become a `PaymentGatewayException`. |
+| `errorMessage($response)` | Reads a readable message from a failed response. Override it for your provider's error format. |
+| `responseJson($response)` | The response body as an array. |
+| `roundAmount($amount, $currency)` / `currencyDecimals($currency)` | Rounds to 3 decimals for KWD, BHD, OMR (and JOD, IQD, LYD, TND), 2 for others. |
+| `splitName($name)` | `"Amzad Khan Test"` becomes `["Amzad", "Khan Test"]`. |
+| `splitPhone($phone, '965')` | `"+966 50 123 4567"` becomes `['country_code' => '966', 'number' => '501234567']`; local numbers get the default code. |
+| `language($request)` | `'ar'` or `'en'`, from the request locale or the `language` config key. |
+| `providerName()` | Name used in error messages. Override it to return your provider's name. |
+
 Register it, typically in a service provider's `boot()` method:
 
 ```php
@@ -187,13 +210,28 @@ $this->postJson('/payment-gateways/fake/callback', [
 ])->assertOk();
 ```
 
+### Tap Payments
+
+| Key | Default | Notes |
+|---|---|---|
+| `secret_key` | — (required) | `sk_test_...` for the sandbox, `sk_live_...` for live. Tap uses the same URL for both, so there is no test-mode flag. |
+| `source` | `src_all` | `src_all` shows every method enabled on your account, `src_card` cards only, `src_kw.knet` sends the customer straight to KNET. |
+| `phone_country_code` | `965` | Applied to phone numbers given in local form. Numbers in `+966...` / `00966...` form keep their own code. |
+| `merchant_id` | — | Only needed if your Tap account has several merchants. |
+
+Tap requires a customer name and an email or phone number. `customerName` is split on the first space into Tap's first and last name.
+
+Tap redirects the customer to the callback route with `?tap_id=chg_...` and also POSTs a webhook to the same route. Either way, the driver re-fetches the charge from Tap before firing an event. Authorize-only (`AUTHORIZED`) charges are not supported yet.
+
+For a quick sandbox test you can use Tap's [public test keys](https://developers.tap.company/reference/testing-keys) and [test cards](https://developers.tap.company/reference/testing-cards), but use your own dashboard keys for real development.
+
 ## Supported gateways
 
 | Gateway | Driver key | Status |
 |---|---|---|
 | MyFatoorah | `myfatoorah` | Implemented, built on the official [`myfatoorah/library`](https://packagist.org/packages/myfatoorah/library) SDK |
 | KNET | `knet` | Planned |
-| Tap Payments | `tap` | Planned |
+| Tap Payments | `tap` | Implemented (hosted payment page, Charges API v2) |
 | Hesabe | `hesabe` | Planned |
 | UPayment | `upayment` | Planned |
 
@@ -202,6 +240,7 @@ $this->postJson('/payment-gateways/fake/callback', [
 ```bash
 composer test
 composer analyse
+vendor/bin/pest --exclude-group=sandbox   # skip tests that call the real Tap sandbox
 composer format
 ```
 

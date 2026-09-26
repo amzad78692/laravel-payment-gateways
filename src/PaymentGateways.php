@@ -9,6 +9,7 @@ use Amzad\PaymentGateways\Exceptions\GatewayNotFoundException;
 use Amzad\PaymentGateways\Exceptions\InvalidGatewayConfigurationException;
 use Amzad\PaymentGateways\Gateways\FakeGateway;
 use Amzad\PaymentGateways\Gateways\MyFatoorahGateway;
+use Amzad\PaymentGateways\Gateways\TapGateway;
 use Closure;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
@@ -34,6 +35,7 @@ class PaymentGateways
     protected array $drivers = [
         'fake' => FakeGateway::class,
         'myfatoorah' => MyFatoorahGateway::class,
+        'tap' => TapGateway::class,
     ];
 
     public function __construct(

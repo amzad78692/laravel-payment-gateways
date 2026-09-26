@@ -54,7 +54,7 @@ class MyFatoorahGateway extends AbstractGateway
                 ? (string) $this->config('mobile_country_code', '+965')
                 : null,
             'DisplayCurrencyIso' => $request->currency,
-            'Language' => $this->language($request),
+            'Language' => strtoupper($this->language($request)),
             'CallBackUrl' => $this->callbackUrl($request),
             'ErrorUrl' => $request->errorUrl ?? $this->callbackUrl($request),
             'CustomerReference' => $request->reference,
@@ -139,12 +139,5 @@ class MyFatoorahGateway extends AbstractGateway
         $decoded = json_decode((string) json_encode($data), true) ?? [];
 
         return $decoded;
-    }
-
-    private function language(PaymentRequestData $request): string
-    {
-        $locale = $request->locale !== '' ? $request->locale : (string) $this->config('language', 'en');
-
-        return str_starts_with(strtolower($locale), 'ar') ? 'AR' : 'EN';
     }
 }
