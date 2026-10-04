@@ -39,7 +39,16 @@ return [
         //     'driver' => 'tap',
         //     'secret_key' => env('TAP_SECRET_KEY'), // sk_test_... or sk_live_...
         //     'source' => env('TAP_SOURCE', 'src_all'), // src_all | src_card | src_kw.knet
-        //     'phone_country_code' => env('TAP_PHONE_COUNTRY_CODE', '965'),
+        // ],
+        //
+        // 'hesabe' => [
+        //     'driver' => 'hesabe',
+        //     'merchant_code' => env('HESABE_MERCHANT_CODE'),
+        //     'access_code' => env('HESABE_ACCESS_CODE'),
+        //     'secret_key' => env('HESABE_SECRET_KEY'), // 32 characters
+        //     'iv_key' => env('HESABE_IV_KEY'), // 16 characters
+        //     'test_mode' => env('HESABE_TEST_MODE', true),
+        //     'payment_type' => env('HESABE_PAYMENT_TYPE', 0), // 0 = customer picks on Hesabe's page, 1 = KNET, 2 = cards, ...
         // ],
     ],
 

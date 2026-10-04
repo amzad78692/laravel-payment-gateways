@@ -8,6 +8,7 @@ use Amzad\PaymentGateways\Data\PaymentResponseData;
 use Amzad\PaymentGateways\Exceptions\GatewayNotFoundException;
 use Amzad\PaymentGateways\Exceptions\InvalidGatewayConfigurationException;
 use Amzad\PaymentGateways\Gateways\FakeGateway;
+use Amzad\PaymentGateways\Gateways\HesabeGateway;
 use Amzad\PaymentGateways\Gateways\MyFatoorahGateway;
 use Amzad\PaymentGateways\Gateways\TapGateway;
 use Closure;
@@ -34,6 +35,7 @@ class PaymentGateways
      */
     protected array $drivers = [
         'fake' => FakeGateway::class,
+        'hesabe' => HesabeGateway::class,
         'myfatoorah' => MyFatoorahGateway::class,
         'tap' => TapGateway::class,
     ];
@@ -63,9 +65,7 @@ class PaymentGateways
     {
         $default = $this->config->get('payment-gateways.default');
 
-        return is_string($default) && $default !== ''
-            ? $default
-            : throw new InvalidGatewayConfigurationException('No default payment gateway is configured.');
+        return $default ?: throw new InvalidGatewayConfigurationException('No default payment gateway is configured.');
     }
 
     /**

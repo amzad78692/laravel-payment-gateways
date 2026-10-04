@@ -6,10 +6,11 @@
 
 Unified payment processing for Laravel with Gulf-region gateways (MyFatoorah, KNET, Tap, Hesabe, UPayment) behind a single driver-based API. Every gateway returns the same normalised response shapes, and a new provider can be added by implementing one driver class.
 
-> **Status:** under active development. The `myfatoorah` and `tap` drivers are implemented; the rest are planned.
+> **Status:** under active development. The `myfatoorah`, `tap` and `hesabe` drivers are implemented; the rest are planned.
 
 ## How it works
 
+- **No phone numbers.** The package never sends a customer phone number to any gateway; `PaymentRequestData` has no phone field.
 - **One contract, many drivers.** Every gateway implements the `Gateway` interface (`charge()` and `handleCallback()`), so the rest of your app never needs to know which provider it's talking to.
 - **Normalised data.** `charge()` always returns a `PaymentResponseData`, and a gateway callback always resolves to a `WebhookResult`, regardless of how different the underlying provider's API is (MyFatoorah's invoice flow vs. KNET's encrypted redirect, for example).
 - **One callback route per gateway.** Both the customer's browser redirect and any async webhook a provider sends land on the same route and are turned into `PaymentSucceeded` or `PaymentFailed` events.
@@ -39,6 +40,13 @@ MYFATOORAH_TEST_MODE=true
 
 # or, for Tap
 TAP_SECRET_KEY=sk_test_XKokBfNWv6FIYuTMg5sLPjhJ
+
+# or, for Hesabe (these are Hesabe's public sandbox credentials)
+HESABE_MERCHANT_CODE=842217
+HESABE_ACCESS_CODE=c333729b-d060-4b74-a49d-7686a8353481
+HESABE_SECRET_KEY=PkW64zMe5NVdrlPVNnjo2Jy9nOb7v1Xg
+HESABE_IV_KEY=5NVdrlPVNnjo2Jy9
+HESABE_TEST_MODE=true
 ```
 
 ## Configuration
@@ -65,7 +73,15 @@ return [
             'driver' => 'tap',
             'secret_key' => env('TAP_SECRET_KEY'),
             'source' => env('TAP_SOURCE', 'src_all'),
-            'phone_country_code' => env('TAP_PHONE_COUNTRY_CODE', '965'),
+        ],
+        'hesabe' => [
+            'driver' => 'hesabe',
+            'merchant_code' => env('HESABE_MERCHANT_CODE'),
+            'access_code' => env('HESABE_ACCESS_CODE'),
+            'secret_key' => env('HESABE_SECRET_KEY'),
+            'iv_key' => env('HESABE_IV_KEY'),
+            'test_mode' => env('HESABE_TEST_MODE', true),
+            'payment_type' => env('HESABE_PAYMENT_TYPE', 0),
         ],
     ],
 
@@ -103,7 +119,6 @@ $response = PaymentGateways::charge(new PaymentRequestData(
     currency: 'KWD',
     customerName: $order->customer->name,
     customerEmail: $order->customer->email,
-    customerPhone: $order->customer->phone,
 ));
 
 if ($response->requiresRedirect()) {
@@ -165,18 +180,15 @@ class MyGateway extends AbstractGateway
 }
 ```
 
-`AbstractGateway` also has provider-neutral helpers, so most drivers only contain what is specific to their provider (see `TapGateway` for a full example):
+`AbstractGateway` also has provider-neutral helpers, so most drivers only contain what is specific to their provider (see `TapGateway` for a full example). Each driver makes its own HTTP calls with Laravel's `Http` client, typically through a small private `client()` method that sets the base URL and credentials. For providers that encrypt payloads, `Amzad\PaymentGateways\Support\AesCrypt` handles AES-CBC with hex encoding (`encryptJson()` / `decryptJson()`):
 
 | Helper | What it does |
 |---|---|
-| `http()` | Laravel HTTP client sending and accepting JSON, with the `timeout` config key. Override it to add your base URL and auth, starting from `parent::http()`. |
-| `send(fn ($http) => ..., 'charge')` | Runs a request built on `http()`; connection errors and failed responses become a `PaymentGatewayException`. |
-| `errorMessage($response)` | Reads a readable message from a failed response. Override it for your provider's error format. |
-| `responseJson($response)` | The response body as an array. |
-| `roundAmount($amount, $currency)` / `currencyDecimals($currency)` | Rounds to 3 decimals for KWD, BHD, OMR (and JOD, IQD, LYD, TND), 2 for others. |
+| `mapStatus($map, $status)` | Translates a provider status with a `[provider status => PaymentStatus]` map, ignoring case; unknown statuses throw `InvalidWebhookException`. |
+| `isTestMode()` / `environmentUrl($sandbox, $live)` | Reads the `test_mode` config key (default `true`) and picks the matching URL. |
+| `errorUrl($request)` | The request's `errorUrl`, or the callback URL when none is given. |
 | `splitName($name)` | `"Amzad Khan Test"` becomes `["Amzad", "Khan Test"]`. |
-| `splitPhone($phone, '965')` | `"+966 50 123 4567"` becomes `['country_code' => '966', 'number' => '501234567']`; local numbers get the default code. |
-| `language($request)` | `'ar'` or `'en'`, from the request locale or the `language` config key. |
+| `language($request)` | The request locale, or the `language` config key, or the app locale. |
 | `providerName()` | Name used in error messages. Override it to return your provider's name. |
 
 Register it, typically in a service provider's `boot()` method:
@@ -216,14 +228,33 @@ $this->postJson('/payment-gateways/fake/callback', [
 |---|---|---|
 | `secret_key` | — (required) | `sk_test_...` for the sandbox, `sk_live_...` for live. Tap uses the same URL for both, so there is no test-mode flag. |
 | `source` | `src_all` | `src_all` shows every method enabled on your account, `src_card` cards only, `src_kw.knet` sends the customer straight to KNET. |
-| `phone_country_code` | `965` | Applied to phone numbers given in local form. Numbers in `+966...` / `00966...` form keep their own code. |
 | `merchant_id` | — | Only needed if your Tap account has several merchants. |
 
-Tap requires a customer name and an email or phone number. `customerName` is split on the first space into Tap's first and last name.
+Tap requires a customer name and email. `customerName` is split on the first space into Tap's first and last name.
 
 Tap redirects the customer to the callback route with `?tap_id=chg_...` and also POSTs a webhook to the same route. Either way, the driver re-fetches the charge from Tap before firing an event. Authorize-only (`AUTHORIZED`) charges are not supported yet.
 
 For a quick sandbox test you can use Tap's [public test keys](https://developers.tap.company/reference/testing-keys) and [test cards](https://developers.tap.company/reference/testing-cards), but use your own dashboard keys for real development.
+
+### Hesabe
+
+| Key | Default | Notes |
+|---|---|---|
+| `merchant_code` | — (required) | From the Hesabe merchant panel (Profile → Account). |
+| `access_code` | — (required) | Sent as the `accessCode` header. |
+| `secret_key` | — (required) | 32-character encryption key. |
+| `iv_key` | — (required) | 16-character IV key. |
+| `test_mode` | `true` | `true` uses `https://sandbox.hesabe.com`, `false` uses `https://api.hesabe.com`. Sandbox and live have different credentials. |
+| `payment_type` | `0` | `0` shows Hesabe's page where the customer picks a method. Set a method id to go straight to it: `1` KNET, `2` MPGS cards, `7` AMEX, `9` Apple Pay, `16` Google Pay, `18` Deema, `20` Samsung Pay. |
+
+The driver uses Hesabe's Checkout API. Requests and responses are AES-256-CBC encrypted with your secret key and IV key; the driver handles this for you.
+
+- Customer name and email are optional.
+- `errorUrl`, when given, is used as Hesabe's `failureUrl`; otherwise failures come back to the callback route too.
+
+Hesabe redirects the customer to the callback route with an encrypted `?data=` value and also POSTs a webhook there. The webhook is neither encrypted nor signed, so in both cases the driver takes only the payment token and verifies it with Hesabe's Transaction Enquiry API before firing an event. Refunds, authorize/capture and subscriptions are not supported yet.
+
+Hesabe publishes [sandbox credentials](https://developer.hesabe.com/docs/guides/pre-requisites/) and [test cards](https://developer.hesabe.com/docs/support/test-cards/) for trying the flow.
 
 ## Supported gateways
 
@@ -232,7 +263,7 @@ For a quick sandbox test you can use Tap's [public test keys](https://developers
 | MyFatoorah | `myfatoorah` | Implemented, built on the official [`myfatoorah/library`](https://packagist.org/packages/myfatoorah/library) SDK |
 | KNET | `knet` | Planned |
 | Tap Payments | `tap` | Implemented (hosted payment page, Charges API v2) |
-| Hesabe | `hesabe` | Planned |
+| Hesabe | `hesabe` | Implemented (hosted payment page, Checkout API) |
 | UPayment | `upayment` | Planned |
 
 ## Testing
@@ -240,7 +271,7 @@ For a quick sandbox test you can use Tap's [public test keys](https://developers
 ```bash
 composer test
 composer analyse
-vendor/bin/pest --exclude-group=sandbox   # skip tests that call the real Tap sandbox
+vendor/bin/pest --exclude-group=sandbox   # skip tests that call the real Tap and Hesabe sandboxes
 composer format
 ```
 

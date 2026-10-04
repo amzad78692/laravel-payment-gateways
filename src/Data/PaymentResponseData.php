@@ -28,7 +28,7 @@ final readonly class PaymentResponseData implements Arrayable
      */
     public function requiresRedirect(): bool
     {
-        return $this->redirectUrl !== null && $this->status === PaymentStatus::Pending;
+        return !empty($this->redirectUrl) && $this->status === PaymentStatus::Pending;
     }
 
     /**

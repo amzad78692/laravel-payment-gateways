@@ -37,7 +37,7 @@ final class PaymentCallbackController
         if ($request->isMethod('GET')) {
             $target = config('payment-gateways.redirects.'.($result->succeeded() ? 'success' : 'failed'));
 
-            if (is_string($target) && $target !== '') {
+            if (!empty($target)) {
                 $query = http_build_query([
                     'payment_reference' => $result->reference,
                     'payment_status' => $result->status->value,

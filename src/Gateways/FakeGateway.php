@@ -31,7 +31,7 @@ class FakeGateway extends AbstractGateway
     {
         $reference = $request->input('reference');
 
-        if (! is_string($reference) || $reference === '') {
+        if (empty($reference)) {
             throw new InvalidWebhookException('Callback is missing the payment reference.');
         }
 

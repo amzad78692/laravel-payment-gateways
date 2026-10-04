@@ -19,7 +19,6 @@ final readonly class PaymentRequestData
         public ?string $description = null,
         public ?string $customerName = null,
         public ?string $customerEmail = null,
-        public ?string $customerPhone = null,
         public ?string $callbackUrl = null,
         public ?string $errorUrl = null,
         public string $locale = 'en',

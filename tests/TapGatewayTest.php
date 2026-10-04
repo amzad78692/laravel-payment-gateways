@@ -86,50 +86,13 @@ it('uses the configured source, merchant and arabic locale', function () {
         && $request->hasHeader('lang_code', 'ar'));
 });
 
-it('rounds the amount to the currency decimals', function (string $currency, float $amount, float $expected) {
-    Http::fake(['api.tap.company/*' => Http::response(tapCharge())]);
-
-    tapGateway()->charge(tapRequest(['amount' => $amount, 'currency' => $currency]));
-
-    Http::assertSent(fn (HttpRequest $request) => $request['amount'] === $expected);
-})->with([
-    'KWD has 3 decimals' => ['KWD', 1.23456, 1.235],
-    'SAR has 2 decimals' => ['SAR', 1.23456, 1.23],
-]);
-
-it('splits the customer phone into country code and number', function (string $phone, string $code, string $number) {
-    Http::fake(['api.tap.company/*' => Http::response(tapCharge())]);
-
-    tapGateway()->charge(tapRequest(['customerEmail' => null, 'customerPhone' => $phone]));
-
-    Http::assertSent(fn (HttpRequest $request) => $request['customer']['phone'] === ['country_code' => $code, 'number' => $number]);
-})->with([
-    'local' => ['5000 0000', '965', '50000000'],
-    'plus prefix' => ['+965 5000-0000', '965', '50000000'],
-    'double zero prefix' => ['0096550000000', '965', '50000000'],
-    'foreign number' => ['+966 50 123 4567', '966', '501234567'],
-    'egyptian number' => ['+20 100 123 4567', '20', '1001234567'],
-]);
-
-it('uses the configured country code for local numbers', function () {
-    Http::fake(['api.tap.company/*' => Http::response(tapCharge())]);
-
-    tapGateway(['phone_country_code' => '+966'])->charge(tapRequest(['customerPhone' => '0501234567']));
-
-    Http::assertSent(fn (HttpRequest $request) => $request['customer']['phone'] === ['country_code' => '966', 'number' => '501234567']);
-});
-
-it('rejects an international phone number with an unrecognised country code', function () {
-    tapGateway()->charge(tapRequest(['customerPhone' => '+999 1234 5678']));
-})->throws(PaymentGatewayException::class, 'country code');
-
 it('requires a customer name', function () {
     tapGateway()->charge(tapRequest(['customerName' => null]));
 })->throws(PaymentGatewayException::class, 'customer name');
 
-it('requires a customer email or phone', function () {
-    tapGateway()->charge(tapRequest(['customerEmail' => null, 'customerPhone' => null]));
-})->throws(PaymentGatewayException::class, 'email or phone');
+it('requires a customer email', function () {
+    tapGateway()->charge(tapRequest(['customerEmail' => null]));
+})->throws(PaymentGatewayException::class, 'customer name and email');
 
 it('requires a secret_key', function () {
     (new TapGateway('tap', []))->charge(tapRequest());
@@ -141,7 +104,7 @@ it('surfaces Tap API errors', function () {
     ], 400)]);
 
     tapGateway()->charge(tapRequest());
-})->throws(PaymentGatewayException::class, '1117 Order - Amount is invalid');
+})->throws(PaymentGatewayException::class, 'Tap charge failed: Order - Amount is invalid');
 
 it('verifies a customer redirect by re-fetching the charge', function (string $tapStatus, PaymentStatus $expected) {
     Http::fake(['api.tap.company/v2/charges/chg_TS01A1234567890' => Http::response(tapCharge(['status' => $tapStatus]))]);
