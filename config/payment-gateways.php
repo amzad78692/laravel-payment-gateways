@@ -50,6 +50,14 @@ return [
         //     'test_mode' => env('HESABE_TEST_MODE', true),
         //     'payment_type' => env('HESABE_PAYMENT_TYPE', 0), // 0 = customer picks on Hesabe's page, 1 = KNET, 2 = cards, ...
         // ],
+        //
+        // 'knet' => [
+        //     'driver' => 'knet',
+        //     'tranportal_id' => env('KNET_TRANPORTAL_ID'),
+        //     'tranportal_password' => env('KNET_TRANPORTAL_PASSWORD'),
+        //     'resource_key' => env('KNET_RESOURCE_KEY'), // 16 characters
+        //     'test_mode' => env('KNET_TEST_MODE', true),
+        // ],
     ],
 
     /*

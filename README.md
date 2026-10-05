@@ -6,7 +6,7 @@
 
 Unified payment processing for Laravel with Gulf-region gateways (MyFatoorah, KNET, Tap, Hesabe, UPayment) behind a single driver-based API. Every gateway returns the same normalised response shapes, and a new provider can be added by implementing one driver class.
 
-> **Status:** under active development. The `myfatoorah`, `tap` and `hesabe` drivers are implemented; the rest are planned.
+> **Status:** under active development. The `myfatoorah`, `tap`, `hesabe` and `knet` drivers are implemented; the rest are planned.
 
 ## How it works
 
@@ -256,12 +256,32 @@ Hesabe redirects the customer to the callback route with an encrypted `?data=` v
 
 Hesabe publishes [sandbox credentials](https://developer.hesabe.com/docs/guides/pre-requisites/) and [test cards](https://developer.hesabe.com/docs/support/test-cards/) for trying the flow.
 
+### KNET
+
+| Key | Default | Notes |
+|---|---|---|
+| `tranportal_id` | — (required) | From the KNET merchant portal (Merchant Process → View Terminal → Plugin). |
+| `tranportal_password` | — (required) | Terminal password, from your acquiring bank / KNET support. |
+| `resource_key` | — (required) | 16-character terminal resource key, from your acquiring bank / KNET support. |
+| `test_mode` | `true` | `true` uses `https://www.kpaytest.com.kw`, `false` uses `https://www.kpay.com.kw`. Test and live terminals have different credentials. |
+
+The driver uses KNET's RAW (Tranportal) integration with the hosted payment page. `charge()` makes no HTTP call: it encrypts the payment parameters (AES-128-CBC with your resource key) and returns the KNET payment page URL.
+
+- KNET only accepts KWD, and amounts are always sent with three decimals.
+- KNET's track id must be alphanumeric, so the reference is sent with every other character removed (`ORD-2026-00001` becomes `ORD202600001`, at most 40 characters). The original reference travels in `udf1` and is what you get back in `WebhookResult::$reference`. Make sure references stay unique after that clean-up.
+- `metadata` keys `udf2` to `udf5` are passed through as KNET's user-defined fields, e.g. `['udf3' => '12345678']` for a KFAST customer token. Values must not contain `&`.
+- `locale` `ar` shows the Arabic page; anything else shows English.
+
+When a payment is processed, KNET's **server** POSTs an encrypted `trandata` to the callback route. The driver trusts it only if it decrypts with your resource key, and answers with the single plain-text line KNET requires, `REDIRECT=<redirects.success or redirects.failed, with payment_reference and payment_status appended>` (the app's home page if none is configured). KNET then sends the customer's browser there. If that answer is missing, malformed, or KNET cannot reach the route, KNET voids the payment. Errors come back as plain `Error` / `ErrorText` parameters, and the Cancel button on KNET's page posts those fields empty with no order details at all, so the driver adds `?reference=<your reference>` to `errorURL` (unless your `errorUrl` already has a query string) to know which payment was cancelled. Since anyone could forge these plain-text callbacks, they are only ever treated as failed or cancelled, never as paid.
+
+Error and Cancel callbacks come through the customer's browser and are redirected to the configured pages as usual. Because successful payments are notified server to server, the callback route must be publicly reachable over HTTPS with a valid certificate, even in the test environment: use a tunnel such as ngrok when developing locally (open the app through the tunnel so the generated callback URL uses it). Ask KNET or your acquiring bank for the test card details of your terminal. Inquiry, refunds and Apple Pay are not supported yet.
+
 ## Supported gateways
 
 | Gateway | Driver key | Status |
 |---|---|---|
 | MyFatoorah | `myfatoorah` | Implemented, built on the official [`myfatoorah/library`](https://packagist.org/packages/myfatoorah/library) SDK |
-| KNET | `knet` | Planned |
+| KNET | `knet` | Implemented (RAW integration, hosted payment page) |
 | Tap Payments | `tap` | Implemented (hosted payment page, Charges API v2) |
 | Hesabe | `hesabe` | Implemented (hosted payment page, Checkout API) |
 | UPayment | `upayment` | Planned |

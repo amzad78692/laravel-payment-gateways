@@ -9,6 +9,7 @@ use Amzad\PaymentGateways\Exceptions\GatewayNotFoundException;
 use Amzad\PaymentGateways\Exceptions\InvalidGatewayConfigurationException;
 use Amzad\PaymentGateways\Gateways\FakeGateway;
 use Amzad\PaymentGateways\Gateways\HesabeGateway;
+use Amzad\PaymentGateways\Gateways\KnetGateway;
 use Amzad\PaymentGateways\Gateways\MyFatoorahGateway;
 use Amzad\PaymentGateways\Gateways\TapGateway;
 use Closure;
@@ -36,6 +37,7 @@ class PaymentGateways
     protected array $drivers = [
         'fake' => FakeGateway::class,
         'hesabe' => HesabeGateway::class,
+        'knet' => KnetGateway::class,
         'myfatoorah' => MyFatoorahGateway::class,
         'tap' => TapGateway::class,
     ];
