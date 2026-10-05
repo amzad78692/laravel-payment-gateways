@@ -12,6 +12,7 @@ use Amzad\PaymentGateways\Gateways\HesabeGateway;
 use Amzad\PaymentGateways\Gateways\KnetGateway;
 use Amzad\PaymentGateways\Gateways\MyFatoorahGateway;
 use Amzad\PaymentGateways\Gateways\TapGateway;
+use Amzad\PaymentGateways\Gateways\UPaymentGateway;
 use Closure;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Container\Container;
@@ -40,6 +41,7 @@ class PaymentGateways
         'knet' => KnetGateway::class,
         'myfatoorah' => MyFatoorahGateway::class,
         'tap' => TapGateway::class,
+        'upayment' => UPaymentGateway::class,
     ];
 
     public function __construct(

@@ -58,6 +58,12 @@ return [
         //     'resource_key' => env('KNET_RESOURCE_KEY'), // 16 characters
         //     'test_mode' => env('KNET_TEST_MODE', true),
         // ],
+        //
+        // 'upayment' => [
+        //     'driver' => 'upayment',
+        //     'api_key' => env('UPAYMENT_API_KEY'), // non-whitelabel API token
+        //     'test_mode' => env('UPAYMENT_TEST_MODE', true),
+        // ],
     ],
 
     /*

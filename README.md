@@ -10,6 +10,7 @@ Supported gateways:
 | Tap        | `tap`        | KWD, SAR, AED, ...      |
 | Hesabe     | `hesabe`     | KWD                     |
 | KNET       | `knet`       | KWD only                |
+| UPayments  | `upayment`   | KWD, USD, SAR, ...      |
 | Fake       | `fake`       | Any (for local testing) |
 
 You write your payment code once. Switching gateways is a config change.
@@ -401,6 +402,21 @@ Good to know about KNET:
 - Your `reference` must contain letters or digits. KNET removes other characters from its track ID, but you still get your original reference back in the result.
 - KNET's server calls your callback URL directly and expects a special reply. The package handles this for you. Just keep the callback route publicly reachable.
 - If KNET cannot reach your callback URL, it cancels the payment.
+
+### UPayments
+
+```php
+'upayment' => [
+    'driver' => 'upayment',
+    'api_key' => env('UPAYMENT_API_KEY'),             // required: non-whitelabel API token
+    'test_mode' => env('UPAYMENT_TEST_MODE', true),
+],
+```
+
+- Uses the non-whitelabel hosted page: the customer picks KNET, card, Apple Pay, etc. on UPayments' page.
+- Sandbox test token: `NWty8gdjt79cf756hdtyu6u8jht5ns6gfhgy8hdjL`. Get the live token from the UPayments merchant dashboard.
+- Supports `errorUrl` in `PaymentRequestData`; UPayments sends failed and cancelled payments there.
+- Callbacks are verified by re-fetching the status from UPayments with the `track_id`, so keep the callback route publicly reachable for webhooks.
 
 ---
 
